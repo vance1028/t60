@@ -27,6 +27,7 @@ function getSettingsFilePath(): string {
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let derivedKey: Buffer | null = null;
+let currentSalt: Buffer | null = null;
 let autoLockTimer: ReturnType<typeof setTimeout> | null = null;
 let currentAutoLockMinutes: number = DEFAULT_SETTINGS.autoLockMinutes;
 
@@ -87,6 +88,10 @@ function lockVault(): void {
     secureClear(derivedKey);
     derivedKey = null;
   }
+  if (currentSalt) {
+    secureClear(currentSalt);
+    currentSalt = null;
+  }
   mainWindow?.webContents.send('vault-locked');
 }
 
@@ -94,6 +99,10 @@ function quitApp(): void {
   if (derivedKey) {
     secureClear(derivedKey);
     derivedKey = null;
+  }
+  if (currentSalt) {
+    secureClear(currentSalt);
+    currentSalt = null;
   }
   globalShortcut.unregisterAll();
   tray?.destroy();
@@ -160,8 +169,7 @@ function createEmptyVaultData(): VaultData {
   };
 }
 
-function encryptVaultData(vaultData: VaultData, key: Buffer): EncryptedVault {
-  const salt = generateSalt();
+function encryptVaultData(vaultData: VaultData, key: Buffer, salt: Buffer): EncryptedVault {
   const { iv, authTag, ciphertext } = encrypt(JSON.stringify(vaultData), key);
   return {
     salt: bufferToBase64(salt),
@@ -173,7 +181,6 @@ function encryptVaultData(vaultData: VaultData, key: Buffer): EncryptedVault {
 }
 
 function decryptVaultData(encrypted: EncryptedVault, key: Buffer): VaultData {
-  const salt = base64ToBuffer(encrypted.salt);
   const iv = base64ToBuffer(encrypted.iv);
   const authTag = base64ToBuffer(encrypted.authTag);
   const ciphertext = base64ToBuffer(encrypted.ciphertext);
@@ -188,11 +195,10 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle('vault-create', (_event, masterPassword: string) => {
     try {
-      const salt = generateSalt();
-      derivedKey = deriveKey(masterPassword, salt);
-      secureClear(salt);
+      currentSalt = generateSalt();
+      derivedKey = deriveKey(masterPassword, currentSalt);
       const vaultData = createEmptyVaultData();
-      const encrypted = encryptVaultData(vaultData, derivedKey);
+      const encrypted = encryptVaultData(vaultData, derivedKey, currentSalt);
       writeEncryptedVault(encrypted);
       resetAutoLockTimer();
       return { success: true, data: vaultData };
@@ -200,6 +206,10 @@ function registerIpcHandlers(): void {
       if (derivedKey) {
         secureClear(derivedKey);
         derivedKey = null;
+      }
+      if (currentSalt) {
+        secureClear(currentSalt);
+        currentSalt = null;
       }
       return { success: false, error: err.message };
     }
@@ -211,9 +221,8 @@ function registerIpcHandlers(): void {
       if (!encrypted) {
         return { success: false, error: '密码库文件不存在' };
       }
-      const salt = base64ToBuffer(encrypted.salt);
-      derivedKey = deriveKey(masterPassword, salt);
-      secureClear(salt);
+      currentSalt = base64ToBuffer(encrypted.salt);
+      derivedKey = deriveKey(masterPassword, currentSalt);
       try {
         const vaultData = decryptVaultData(encrypted, derivedKey);
         resetAutoLockTimer();
@@ -223,12 +232,20 @@ function registerIpcHandlers(): void {
           secureClear(derivedKey);
           derivedKey = null;
         }
+        if (currentSalt) {
+          secureClear(currentSalt);
+          currentSalt = null;
+        }
         return { success: false, error: '主密码错误' };
       }
     } catch (err: any) {
       if (derivedKey) {
         secureClear(derivedKey);
         derivedKey = null;
+      }
+      if (currentSalt) {
+        secureClear(currentSalt);
+        currentSalt = null;
       }
       return { success: false, error: err.message };
     }
@@ -241,10 +258,10 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle('vault-save', (_event, vaultData: VaultData) => {
     try {
-      if (!derivedKey) {
+      if (!derivedKey || !currentSalt) {
         return { success: false, error: '密码库未解锁' };
       }
-      const encrypted = encryptVaultData(vaultData, derivedKey);
+      const encrypted = encryptVaultData(vaultData, derivedKey, currentSalt);
       writeEncryptedVault(encrypted);
       resetAutoLockTimer();
       return { success: true };
@@ -255,16 +272,16 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle('vault-change-master-password', (_event, currentPassword: string, newPassword: string) => {
     try {
-      if (!derivedKey) {
+      if (!derivedKey || !currentSalt) {
         return { success: false, error: '密码库未解锁' };
       }
       const encrypted = readEncryptedVault();
       if (!encrypted) {
         return { success: false, error: '密码库文件不存在' };
       }
-      const salt = base64ToBuffer(encrypted.salt);
-      const verifyKey = deriveKey(currentPassword, salt);
-      secureClear(salt);
+      const verifySalt = base64ToBuffer(encrypted.salt);
+      const verifyKey = deriveKey(currentPassword, verifySalt);
+      secureClear(verifySalt);
       let vaultData: VaultData;
       try {
         vaultData = decryptVaultData(encrypted, verifyKey);
@@ -275,12 +292,15 @@ function registerIpcHandlers(): void {
       secureClear(verifyKey);
       const newSalt = generateSalt();
       const newKey = deriveKey(newPassword, newSalt);
-      secureClear(newSalt);
       const updatedData = { ...vaultData, updatedAt: Date.now() };
-      const newEncrypted = encryptVaultData(updatedData, newKey);
+      const newEncrypted = encryptVaultData(updatedData, newKey, newSalt);
       writeEncryptedVault(newEncrypted);
       secureClear(derivedKey);
+      if (currentSalt) {
+        secureClear(currentSalt);
+      }
       derivedKey = newKey;
+      currentSalt = newSalt;
       resetAutoLockTimer();
       return { success: true };
     } catch (err: any) {
@@ -324,25 +344,28 @@ function registerIpcHandlers(): void {
       }
       const backupData = fs.readFileSync(result.filePaths[0], 'utf8');
       const encrypted = JSON.parse(backupData) as EncryptedVault;
-      const salt = base64ToBuffer(encrypted.salt);
-      const key = deriveKey(masterPassword, salt);
-      secureClear(salt);
+      const backupSalt = base64ToBuffer(encrypted.salt);
+      const key = deriveKey(masterPassword, backupSalt);
       let vaultData: VaultData;
       try {
         vaultData = decryptVaultData(encrypted, key);
       } catch {
         secureClear(key);
+        secureClear(backupSalt);
         return { success: false, error: '备份文件密码错误' };
       }
       const newSalt = generateSalt();
       const newKey = deriveKey(masterPassword, newSalt);
-      secureClear(newSalt);
-      const newEncrypted = encryptVaultData(vaultData, newKey);
+      const newEncrypted = encryptVaultData(vaultData, newKey, newSalt);
       writeEncryptedVault(newEncrypted);
       if (derivedKey) {
         secureClear(derivedKey);
       }
+      if (currentSalt) {
+        secureClear(currentSalt);
+      }
       derivedKey = newKey;
+      currentSalt = newSalt;
       resetAutoLockTimer();
       return { success: true, data: vaultData };
     } catch (err: any) {
@@ -386,7 +409,7 @@ app.whenReady().then(() => {
   setupTray();
   registerIpcHandlers();
 
-  globalShortcut.register('CommandOrShift+Alt+V', () => {
+  globalShortcut.register('Ctrl+Shift+V', () => {
     if (mainWindow?.isVisible()) {
       mainWindow.hide();
     } else {
@@ -405,6 +428,10 @@ app.on('before-quit', () => {
   if (derivedKey) {
     secureClear(derivedKey);
     derivedKey = null;
+  }
+  if (currentSalt) {
+    secureClear(currentSalt);
+    currentSalt = null;
   }
   globalShortcut.unregisterAll();
 });
