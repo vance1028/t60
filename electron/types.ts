@@ -7,6 +7,9 @@ export interface VaultEntry {
   notes: string;
   category: string;
   tags: string[];
+  totpSecret?: string;
+  totpPeriod?: number;
+  totpDigits?: number;
   createdAt: number;
   updatedAt: number;
 }

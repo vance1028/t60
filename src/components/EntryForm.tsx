@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { VaultEntry } from '../types';
+import { parseOtpauthUri } from '../utils/totp';
 import PasswordGenerator from './PasswordGenerator';
 import './EntryForm.css';
 
@@ -22,6 +23,24 @@ const EntryForm: React.FC<EntryFormProps> = ({ entry, onSave, onCancel, existing
   const [showGenerator, setShowGenerator] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  const [totpSecret, setTotpSecret] = useState(entry?.totpSecret || '');
+  const [totpPeriod, setTotpPeriod] = useState(entry?.totpPeriod || 30);
+  const [totpDigits, setTotpDigits] = useState(entry?.totpDigits || 6);
+  const [showTotpSection, setShowTotpSection] = useState(!!entry?.totpSecret);
+  const [totpUriInput, setTotpUriInput] = useState('');
+
+  const handleOtpauthPaste = () => {
+    if (!totpUriInput.trim()) return;
+    const parsed = parseOtpauthUri(totpUriInput.trim());
+    if (parsed) {
+      setTotpSecret(parsed.secret);
+      setTotpPeriod(parsed.period);
+      setTotpDigits(parsed.digits);
+      setShowTotpSection(true);
+      setTotpUriInput('');
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
@@ -40,6 +59,9 @@ const EntryForm: React.FC<EntryFormProps> = ({ entry, onSave, onCancel, existing
       notes: notes.trim(),
       category: category.trim(),
       tags,
+      totpSecret: showTotpSection && totpSecret ? totpSecret : undefined,
+      totpPeriod: showTotpSection && totpSecret ? totpPeriod : undefined,
+      totpDigits: showTotpSection && totpSecret ? totpDigits : undefined,
     });
   };
 
@@ -167,6 +189,85 @@ const EntryForm: React.FC<EntryFormProps> = ({ entry, onSave, onCancel, existing
             className="form-input"
             placeholder="开发, 重要, 备用"
           />
+        </div>
+
+        <div className="form-divider" />
+        <div className="form-group">
+          <div className="totp-header-row">
+            <label className="form-label">两步验证 (TOTP)</label>
+            <button
+              type="button"
+              className="form-btn-small"
+              onClick={() => {
+                setShowTotpSection(!showTotpSection);
+                if (showTotpSection) {
+                  setTotpSecret('');
+                  setTotpPeriod(30);
+                  setTotpDigits(6);
+                }
+              }}
+            >
+              {showTotpSection ? '移除 TOTP' : '+ 添加'}
+            </button>
+          </div>
+
+          {!showTotpSection && (
+            <div className="totp-uri-input-section">
+              <input
+                type="text"
+                value={totpUriInput}
+                onChange={(e) => setTotpUriInput(e.target.value)}
+                className="form-input"
+                placeholder="粘贴 otpauth://totp/... 链接"
+              />
+              <button
+                type="button"
+                className="form-btn-small generate-btn"
+                onClick={handleOtpauthPaste}
+                disabled={!totpUriInput.trim()}
+              >
+                解析导入
+              </button>
+            </div>
+          )}
+
+          {showTotpSection && (
+            <div className="totp-fields">
+              <div className="form-group">
+                <label className="form-label">密钥 (Base32)</label>
+                <input
+                  type="text"
+                  value={totpSecret}
+                  onChange={(e) => setTotpSecret(e.target.value.toUpperCase())}
+                  className="form-input"
+                  placeholder="例如：JBSWY3DPEHPK3PXP"
+                />
+              </div>
+              <div className="totp-params-row">
+                <div className="form-group totp-param">
+                  <label className="form-label">周期（秒）</label>
+                  <input
+                    type="number"
+                    value={totpPeriod}
+                    onChange={(e) => setTotpPeriod(Number(e.target.value) || 30)}
+                    className="form-input"
+                    min={1}
+                  />
+                </div>
+                <div className="form-group totp-param">
+                  <label className="form-label">位数</label>
+                  <input
+                    type="number"
+                    value={totpDigits}
+                    onChange={(e) => setTotpDigits(Number(e.target.value) || 6)}
+                    className="form-input"
+                    min={6}
+                    max={8}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="form-actions">

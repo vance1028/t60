@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { VaultEntry } from '../types';
+import { generateTOTP, getTimeRemaining, getProgress } from '../utils/totp';
 import './EntryList.css';
 
 interface EntryListProps {
@@ -8,6 +9,98 @@ interface EntryListProps {
   onDelete: (id: string) => void;
   onCopyField: (text: string, fieldName: string) => void;
 }
+
+const TOTPCode: React.FC<{
+  entry: VaultEntry;
+  onCopy: (text: string, label: string) => void;
+}> = ({ entry, onCopy }) => {
+  const [code, setCode] = useState<string>('');
+  const [progress, setProgress] = useState<number>(1);
+  const [remaining, setRemaining] = useState<number>(30);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const period = entry.totpPeriod || 30;
+  const digits = entry.totpDigits || 6;
+
+  const updateCode = useCallback(async () => {
+    if (!entry.totpSecret) return;
+    try {
+      const newCode = await generateTOTP(entry.totpSecret, period, digits);
+      setCode(newCode);
+    } catch {
+      setCode('------');
+    }
+    const rem = getTimeRemaining(period);
+    setRemaining(rem);
+    setProgress(getProgress(period));
+  }, [entry.totpSecret, period, digits]);
+
+  useEffect(() => {
+    updateCode();
+    timerRef.current = setInterval(updateCode, 1000);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [updateCode]);
+
+  const radius = 16;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference * (1 - progress);
+
+  const formatCode = (c: string) => {
+    if (c.length === 6) return `${c.slice(0, 3)} ${c.slice(3)}`;
+    if (c.length === 8) return `${c.slice(0, 4)} ${c.slice(4)}`;
+    return c;
+  };
+
+  const isLow = remaining <= 5;
+
+  return (
+    <div className="totp-display">
+      <div className="totp-code-row">
+        <svg className="totp-countdown" width="38" height="38" viewBox="0 0 38 38">
+          <circle
+            cx="19" cy="19" r={radius}
+            fill="none"
+            stroke="var(--bg-tertiary)"
+            strokeWidth="3"
+          />
+          <circle
+            cx="19" cy="19" r={radius}
+            fill="none"
+            stroke={isLow ? 'var(--danger)' : 'var(--accent)'}
+            strokeWidth="3"
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="round"
+            transform="rotate(-90 19 19)"
+            style={{ transition: 'stroke-dashoffset 1s linear, stroke 0.3s' }}
+          />
+          <text
+            x="19" y="20"
+            textAnchor="middle"
+            dominantBaseline="central"
+            fill={isLow ? 'var(--danger)' : 'var(--text-secondary)'}
+            fontSize="11"
+            fontWeight="600"
+          >
+            {remaining}
+          </text>
+        </svg>
+        <span className={`totp-code ${isLow ? 'totp-code-low' : ''}`}>
+          {formatCode(code)}
+        </span>
+        <button
+          className="action-btn"
+          onClick={(e) => { e.stopPropagation(); onCopy(code, '验证码'); }}
+          title="复制验证码"
+          disabled={!code || code === '------'}
+        >
+          📋
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const EntryList: React.FC<EntryListProps> = ({ entries, onEdit, onDelete, onCopyField }) => {
   const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
@@ -76,6 +169,10 @@ const EntryList: React.FC<EntryListProps> = ({ entries, onEdit, onDelete, onCopy
                 📋
               </button>
             </div>
+
+            {entry.totpSecret && (
+              <TOTPCode entry={entry} onCopy={onCopyField} />
+            )}
 
             <div className="entry-secondary-actions">
               {entry.username && (

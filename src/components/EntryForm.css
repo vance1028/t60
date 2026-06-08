@@ -152,3 +152,46 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+.form-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+.totp-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.totp-uri-input-section {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.totp-uri-input-section .form-input {
+  flex: 1;
+  font-size: 12px;
+}
+
+.totp-fields {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.totp-params-row {
+  display: flex;
+  gap: 12px;
+}
+
+.totp-param {
+  flex: 1;
+}
+
+.totp-param .form-input {
+  width: 100%;
+}

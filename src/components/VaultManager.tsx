@@ -5,6 +5,7 @@ import EntryForm from './EntryForm';
 import PasswordGenerator from './PasswordGenerator';
 import SettingsPanel from './SettingsPanel';
 import ChangeMasterPassword from './ChangeMasterPassword';
+import SecurityAudit from './SecurityAudit';
 import { useClipboard } from '../hooks/useClipboard';
 import { v4 as uuidv4 } from 'uuid';
 import './VaultManager.css';
@@ -17,7 +18,7 @@ interface VaultManagerProps {
   onSettingsChange: (settings: AppSettings) => void;
 }
 
-type ViewMode = 'list' | 'form' | 'generator' | 'settings' | 'change-password';
+type ViewMode = 'list' | 'form' | 'generator' | 'settings' | 'change-password' | 'audit';
 
 const VaultManager: React.FC<VaultManagerProps> = ({
   vaultData,
@@ -142,6 +143,11 @@ const VaultManager: React.FC<VaultManagerProps> = ({
     }
   }, [onSave, showNotification]);
 
+  const handleAuditNavigate = useCallback((entry: VaultEntry) => {
+    setEditingEntry(entry);
+    setView('form');
+  }, []);
+
   return (
     <div className="vault-manager">
       <header className="vault-header">
@@ -149,6 +155,9 @@ const VaultManager: React.FC<VaultManagerProps> = ({
           <h1 className="vault-logo">VaultKeeper</h1>
         </div>
         <div className="vault-header-right">
+          <button className="header-btn audit-btn" onClick={() => setView('audit')} title="安全体检">
+            安全体检
+          </button>
           <button className="header-btn" onClick={() => setView('generator')} title="密码生成器">
             密码生成器
           </button>
@@ -212,11 +221,7 @@ const VaultManager: React.FC<VaultManagerProps> = ({
       {view === 'generator' && (
         <PasswordGenerator
           onUsePassword={(password) => {
-            if (editingEntry) {
-              setView('form');
-            } else {
-              setView('form');
-            }
+            setView('form');
           }}
           onBack={() => setView('list')}
           onCopy={handleCopyField}
@@ -241,6 +246,14 @@ const VaultManager: React.FC<VaultManagerProps> = ({
             showNotification('主密码已更改');
             setView('settings');
           }}
+        />
+      )}
+
+      {view === 'audit' && (
+        <SecurityAudit
+          entries={vaultData.entries}
+          onNavigateToEntry={handleAuditNavigate}
+          onBack={() => setView('list')}
         />
       )}
 

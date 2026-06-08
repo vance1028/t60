@@ -59,6 +59,17 @@
   background: rgba(231, 76, 94, 0.25);
 }
 
+.audit-btn {
+  background: var(--accent-light);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.audit-btn:hover {
+  background: var(--accent);
+  color: white;
+}
+
 .vault-content {
   flex: 1;
   display: flex;

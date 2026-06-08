@@ -176,3 +176,38 @@
   font-size: 12px;
   color: var(--warning);
 }
+
+.totp-display {
+  margin-top: 2px;
+}
+
+.totp-code-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.totp-countdown {
+  flex-shrink: 0;
+}
+
+.totp-code {
+  font-size: 18px;
+  font-weight: 700;
+  font-family: 'Consolas', 'Courier New', monospace;
+  color: var(--accent);
+  letter-spacing: 2px;
+  min-width: 80px;
+  text-align: center;
+  transition: color 0.3s;
+}
+
+.totp-code-low {
+  color: var(--danger);
+  animation: totpPulse 1s ease-in-out infinite;
+}
+
+@keyframes totpPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
