@@ -1,0 +1,124 @@
+.unlock-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background: var(--bg-primary);
+}
+
+.unlock-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 48px 40px;
+  width: 420px;
+  max-width: 90vw;
+  box-shadow: var(--shadow);
+}
+
+.unlock-icon {
+  text-align: center;
+  color: var(--accent);
+  margin-bottom: 16px;
+}
+
+.unlock-title {
+  text-align: center;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.unlock-subtitle {
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 32px;
+}
+
+.unlock-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.unlock-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.unlock-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.unlock-input-wrapper {
+  position: relative;
+}
+
+.unlock-input {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.unlock-input:focus {
+  border-color: var(--accent);
+}
+
+.unlock-input-wrapper .unlock-input {
+  padding-right: 60px;
+}
+
+.unlock-toggle-visibility {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.unlock-toggle-visibility:hover {
+  color: var(--text-secondary);
+  background: var(--bg-hover);
+}
+
+.unlock-error {
+  background: rgba(231, 76, 94, 0.1);
+  border: 1px solid rgba(231, 76, 94, 0.3);
+  color: var(--danger);
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  font-size: 13px;
+}
+
+.unlock-submit {
+  padding: 12px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.unlock-submit:hover {
+  background: var(--accent-hover);
+}
